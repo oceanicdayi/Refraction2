@@ -86,11 +86,13 @@
       <button id="stackBtn" type="button">＋ 疊加 5 次</button>
       <button id="playBtn" type="button">▶ 播放</button>
       <button id="pauseBtn" type="button">Ⅱ 暫停</button>
+      <button id="stepBtn" type="button">⏭ +5 ms</button>
       <button id="resetBtn" type="button">↺ 重設</button>
       <label class="speed-control">動畫速度
         <select id="speedSelect" aria-label="動畫速度">
-          <option value="0.05">極慢 0.05×</option>
-          <option value="0.10" selected>慢速 0.10×</option>
+          <option value="0.02">超慢 0.02×</option>
+          <option value="0.05" selected>極慢 0.05×</option>
+          <option value="0.10">慢速 0.10×</option>
           <option value="0.25">0.25×</option>
           <option value="0.50">0.50×</option>
           <option value="1.00">原速 1×</option>
@@ -99,7 +101,12 @@
       <span id="simStatus" class="status" aria-live="polite">準備完成</span>
     </div>
     <svg id="crossSection" viewBox="0 0 980 430" aria-label="兩層地下構造與震波傳遞模擬"></svg>
-    <p class="hint">提示：可以直接點擊上方地表，改變敲擊位置；點擊任一受波器可選擇要分析的 channel。</p>
+    <div class="wave-legend" aria-label="震波動畫圖例">
+      <span><i class="wave-blue"></i>藍色弧線：第一層震波波前</span>
+      <span><i class="wave-gold"></i>金色粗線：高速層 head wave</span>
+      <span><i class="wave-ray"></i>虛線：選取受波器的代表性射線路徑</span>
+    </div>
+    <p class="hint">提示：可以直接點擊上方地表改變敲擊位置；點擊任一受波器選擇 channel。若要逐格觀察，可先按「暫停」，再按「+5 ms」。動畫波前為概念示意，用來比較不同速度層中的傳遞與 first arrival。</p>
   </div>
 
   <div class="observation-grid">
