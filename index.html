@@ -87,6 +87,15 @@
       <button id="playBtn" type="button">▶ 播放</button>
       <button id="pauseBtn" type="button">Ⅱ 暫停</button>
       <button id="resetBtn" type="button">↺ 重設</button>
+      <label class="speed-control">動畫速度
+        <select id="speedSelect" aria-label="動畫速度">
+          <option value="0.05">極慢 0.05×</option>
+          <option value="0.10" selected>慢速 0.10×</option>
+          <option value="0.25">0.25×</option>
+          <option value="0.50">0.50×</option>
+          <option value="1.00">原速 1×</option>
+        </select>
+      </label>
       <span id="simStatus" class="status" aria-live="polite">準備完成</span>
     </div>
     <svg id="crossSection" viewBox="0 0 980 430" aria-label="兩層地下構造與震波傳遞模擬"></svg>
