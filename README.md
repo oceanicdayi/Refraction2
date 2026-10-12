@@ -30,6 +30,12 @@
 網站只有在 offset 足以形成臨界折射路徑時，才把折射波當成可用的實際 ray path，避免把截距直線外插區誤解為真實傳播路徑。
 
 ## GitHub Pages
-此專案的靜態網站檔案位於 repository 根目錄：`index.html`、`style.css`、`script.js`。
+專案已包含 `.github/workflows/pages.yml`，會在每次推送到 `main` 時自動部署 GitHub Pages。
 
-若尚未啟用 Pages：Settings → Pages → Deploy from a branch → `main` → `/(root)`。
+第一次使用時，請在 repository：
+**Settings → Pages → Build and deployment → Source → GitHub Actions**
+
+啟用後，可在 **Actions** 頁面重新執行 **Deploy to GitHub Pages**；往後更新 `main` 會自動重新部署。
+
+預期網站網址：
+`https://oceanicdayi.github.io/Refraction2/`
