@@ -2,28 +2,142 @@
   if(window.__refractionLabInit) return;
   window.__refractionLabInit = true;
   const $ = id => document.getElementById(id);
-  const el={v1:$('v1'),v2:$('v2'),depth:$('depth'),noise:$('noise'),v1Out:$('v1Out'),v2Out:$('v2Out'),depthOut:$('depthOut'),noiseOut:$('noiseOut'),nRec:$('nRec'),recSpacing:$('recSpacing'),shotSlider:$('shotSlider'),shotOut:$('shotOut'),cross:$('crossSection'),wiggle:$('wiggle'),trace:$('trace'),travel:$('travelChart'),hit:$('hitBtn'),stack:$('stackBtn'),play:$('playBtn'),pause:$('pauseBtn'),reset:$('resetBtn'),status:$('simStatus'),predReceiverLabel:$('predReceiverLabel'),traceTitle:$('traceTitle'),traceMeta:$('traceMeta'),arrivalReadout:$('arrivalReadout'),finding:$('finding'),reverse:$('reverseBtn'),random:$('randomBtn'),reveal:$('revealBtn'),challenge:$('challengeMessage'),speedSelect:$('speedSelect')};
-  const state={shot:0,selected:6,animT:0,playing:false,raf:0,stackCount:1,seed:1234567,last:0,speed:0.10,holdUntil:0};
+  const el={v1:$('v1'),v2:$('v2'),depth:$('depth'),noise:$('noise'),v1Out:$('v1Out'),v2Out:$('v2Out'),depthOut:$('depthOut'),noiseOut:$('noiseOut'),nRec:$('nRec'),recSpacing:$('recSpacing'),shotSlider:$('shotSlider'),shotOut:$('shotOut'),cross:$('crossSection'),wiggle:$('wiggle'),trace:$('trace'),travel:$('travelChart'),hit:$('hitBtn'),stack:$('stackBtn'),play:$('playBtn'),pause:$('pauseBtn'),reset:$('resetBtn'),step:$('stepBtn'),status:$('simStatus'),predReceiverLabel:$('predReceiverLabel'),traceTitle:$('traceTitle'),traceMeta:$('traceMeta'),arrivalReadout:$('arrivalReadout'),finding:$('finding'),reverse:$('reverseBtn'),random:$('randomBtn'),reveal:$('revealBtn'),challenge:$('challengeMessage'),speedSelect:$('speedSelect')};
+  const state={shot:0,selected:6,animT:0,playing:false,raf:0,stackCount:1,seed:1234567,last:0,speed:0.05,holdUntil:0,loopAnimation:false};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const params=()=>{let v1=+el.v1.value,v2=+el.v2.value;if(v2<=v1+80){v2=v1+80;el.v2.value=v2;}return{v1,v2,h:+el.depth.value,noise:+el.noise.value/100,n:+el.nRec.value,dx:+el.recSpacing.value};};
   const recs=()=>{const p=params();return Array.from({length:p.n},(_,i)=>({x:i*p.dx,name:`G${i+1}`}));};
   function travelForOffset(off,p){const x=Math.abs(off),td=x/p.v1;if(p.v2<=p.v1)return{td,tr:Infinity,first:td,type:'direct'};const ic=Math.asin(p.v1/p.v2),minHead=2*p.h*Math.tan(ic),ti=2*p.h*Math.cos(ic)/p.v1,tr=x>=minHead?ti+x/p.v2:Infinity;if(tr<td)return{td,tr,first:tr,type:'refracted',minHead,ic,ti};return{td,tr,first:td,type:'direct',minHead,ic,ti};}
   function updateOutputs(){const p=params();el.v1Out.value=`${p.v1} m/s`;el.v2Out.value=`${p.v2} m/s`;el.depthOut.value=`${p.h.toFixed(1)} m`;el.noiseOut.value=`${Math.round(p.noise*100)}%`;el.shotOut.value=`${state.shot} m`;const r=recs();state.selected=clamp(state.selected,0,r.length-1);el.predReceiverLabel.textContent=r[state.selected]?.name||'G1';}
   const NS='http://www.w3.org/2000/svg'; const S=(tag,attrs={})=>{const n=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,v);return n;};
-  function drawCross(){const p=params(),r=recs(),svg=el.cross;svg.innerHTML='';const W=980,H=430,left=56,right=28,top=50,bottom=34,surveyMax=Math.max(60,(r.at(-1)?.x||0)+8),xmin=-8,xmax=surveyMax,iw=W-left-right,maxDepth=Math.max(10,p.h+5);const X=x=>left+(x-xmin)/(xmax-xmin)*iw,Y=z=>top+z/maxDepth*(H-top-bottom);svg.appendChild(S('rect',{x:left,y:top,width:iw,height:Y(p.h)-top,fill:'#e4ded1'}));svg.appendChild(S('rect',{x:left,y:Y(p.h),width:iw,height:H-bottom-Y(p.h),fill:'#c7d0c5'}));svg.appendChild(S('line',{x1:left,y1:Y(0),x2:W-right,y2:Y(0),stroke:'#4d5a55','stroke-width':'3'}));svg.appendChild(S('line',{x1:left,y1:Y(p.h),x2:W-right,y2:Y(p.h),stroke:'#8a806d','stroke-width':'3','stroke-dasharray':'9 7'}));
-    let t=S('text',{x:left+10,y:Y(p.h)/2+18,fill:'#5c554b','font-size':'16','font-weight':'800'});t.textContent=`Layer 1 · V₁ = ${p.v1} m/s`;svg.appendChild(t);t=S('text',{x:left+10,y:Y(p.h)+30,fill:'#405349','font-size':'16','font-weight':'800'});t.textContent=`Layer 2 · V₂ = ${p.v2} m/s`;svg.appendChild(t);t=S('text',{x:W-right-8,y:Y(p.h)-10,'text-anchor':'end',fill:'#6c655b','font-size':'13'});t.textContent=`界面深度 ${p.h.toFixed(1)} m`;svg.appendChild(t);
-    for(let x=0;x<=Math.ceil(surveyMax/4)*4;x+=4){svg.appendChild(S('line',{x1:X(x),y1:Y(0)-7,x2:X(x),y2:Y(0)+7,stroke:'#89918e'}));if(x%8===0){const tx=S('text',{x:X(x),y:Y(0)-13,'text-anchor':'middle',fill:'#68736f','font-size':'11'});tx.textContent=x;svg.appendChild(tx);}}
-    r.forEach((g,i)=>{const gg=S('g',{'data-rec':i,role:'button',tabindex:'0'}),sel=i===state.selected;gg.appendChild(S('line',{x1:X(g.x),y1:Y(0),x2:X(g.x),y2:Y(0)+18,stroke:sel?'#d66f3d':'#273f38','stroke-width':sel?'4':'2'}));gg.appendChild(S('path',{d:`M ${X(g.x)-7} ${Y(0)+18} L ${X(g.x)+7} ${Y(0)+18} L ${X(g.x)} ${Y(0)+34} Z`,fill:sel?'#d66f3d':'#273f38'}));const tx=S('text',{x:X(g.x),y:Y(0)+50,'text-anchor':'middle',fill:sel?'#d66f3d':'#32443e','font-size':'11','font-weight':sel?'900':'700'});tx.textContent=g.name;gg.appendChild(tx);gg.style.cursor='pointer';gg.addEventListener('click',e=>{e.stopPropagation();state.selected=i;renderAll();});svg.appendChild(gg);});
-    const sx=X(state.shot),sy=Y(0);svg.appendChild(S('circle',{cx:sx,cy:sy,r:10,fill:'#d66f3d',stroke:'#fff','stroke-width':'3'}));svg.appendChild(S('path',{d:`M ${sx-10} ${sy-34} L ${sx+10} ${sy-34} L ${sx+5} ${sy-5} L ${sx-5} ${sy-5} Z`,fill:'#c2542d'}));const sl=S('text',{x:sx,y:sy-43,'text-anchor':'middle',fill:'#b64f2d','font-size':'13','font-weight':'900'});sl.textContent=`SHOT ${state.shot} m`;svg.appendChild(sl);
-    const g=r[state.selected];if(g){const off=g.x-state.shot,tt=travelForOffset(off,p),rx=X(g.x);svg.appendChild(S('line',{x1:sx,y1:sy+3,x2:rx,y2:sy+7,stroke:'#507c91','stroke-width':'3','stroke-dasharray':'7 6',opacity:'.8'}));if(isFinite(tt.tr)){const dir=Math.sign(off)||1,xleg=p.h*Math.tan(tt.ic),x1=state.shot+dir*xleg,x2=g.x-dir*xleg;if((dir>0&&x2>=x1)||(dir<0&&x2<=x1)){svg.appendChild(S('path',{d:`M ${sx} ${sy} L ${X(x1)} ${Y(p.h)} L ${X(x2)} ${Y(p.h)} L ${rx} ${sy}`,fill:'none',stroke:'#d3a24a','stroke-width':'4'}));}}
-      if(state.animT>0){const td=Math.max(.001,Math.abs(off)/p.v1),f=clamp(state.animT/td,0,1),xpos=state.shot+(g.x-state.shot)*f;svg.appendChild(S('circle',{cx:X(xpos),cy:sy+5,r:12,fill:'#507c91',stroke:'#fff','stroke-width':'3',opacity:state.animT<=td?1:.28}));if(isFinite(tt.tr)){const dir=Math.sign(off)||1,xleg=p.h*Math.tan(tt.ic),x1=state.shot+dir*xleg,x2=g.x-dir*xleg,seg1=p.h/(Math.cos(tt.ic)*p.v1),seg2=Math.max(0,Math.abs(x2-x1))/p.v2,seg3=seg1;let px=state.shot,pz=0;if(state.animT<=seg1){const q=clamp(state.animT/seg1,0,1);px=state.shot+(x1-state.shot)*q;pz=p.h*q;}else if(state.animT<=seg1+seg2){const q=clamp((state.animT-seg1)/Math.max(.0001,seg2),0,1);px=x1+(x2-x1)*q;pz=p.h;}else{const q=clamp((state.animT-seg1-seg2)/seg3,0,1);px=x2+(g.x-x2)*q;pz=p.h*(1-q);}svg.appendChild(S('circle',{cx:X(px),cy:Y(pz),r:13,fill:'#d3a24a',stroke:'#fff','stroke-width':'3',opacity:state.animT<=tt.tr?1:.28}));}}}
-    svg.onclick=e=>{if(e.target.closest('[data-rec]'))return;const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const q=pt.matrixTransform(svg.getScreenCTM().inverse());if(Math.abs(q.y-Y(0))<70){const x=xmin+(q.x-left)/iw*(xmax-xmin);state.shot=Math.round(clamp(x,xmin,xmax));el.shotSlider.value=clamp(state.shot,+el.shotSlider.min,+el.shotSlider.max);state.animT=0;renderAll();}};
+  function drawCross(){
+  const p=params(),r=recs(),svg=el.cross;
+  svg.innerHTML='';
+  const W=980,H=430,left=56,right=28,top=50,bottom=34;
+  const surveyMax=Math.max(60,(r.at(-1)?.x||0)+8),xmin=-8,xmax=surveyMax,iw=W-left-right,maxDepth=Math.max(10,p.h+5);
+  const X=x=>left+(x-xmin)/(xmax-xmin)*iw;
+  const Y=z=>top+z/maxDepth*(H-top-bottom);
+
+  svg.appendChild(S('rect',{x:left,y:top,width:iw,height:Y(p.h)-top,fill:'#e4ded1'}));
+  svg.appendChild(S('rect',{x:left,y:Y(p.h),width:iw,height:H-bottom-Y(p.h),fill:'#c7d0c5'}));
+  svg.appendChild(S('line',{x1:left,y1:Y(0),x2:W-right,y2:Y(0),stroke:'#4d5a55','stroke-width':'3'}));
+  svg.appendChild(S('line',{x1:left,y1:Y(p.h),x2:W-right,y2:Y(p.h),stroke:'#8a806d','stroke-width':'3','stroke-dasharray':'9 7'}));
+
+  let t=S('text',{x:left+10,y:Y(p.h)/2+18,fill:'#5c554b','font-size':'16','font-weight':'800'});
+  t.textContent=`Layer 1 · V₁ = ${p.v1} m/s`; svg.appendChild(t);
+  t=S('text',{x:left+10,y:Y(p.h)+30,fill:'#405349','font-size':'16','font-weight':'800'});
+  t.textContent=`Layer 2 · V₂ = ${p.v2} m/s`; svg.appendChild(t);
+  t=S('text',{x:W-right-8,y:Y(p.h)-10,'text-anchor':'end',fill:'#6c655b','font-size':'13'});
+  t.textContent=`界面深度 ${p.h.toFixed(1)} m`; svg.appendChild(t);
+
+  for(let x=0;x<=Math.ceil(surveyMax/4)*4;x+=4){
+    svg.appendChild(S('line',{x1:X(x),y1:Y(0)-7,x2:X(x),y2:Y(0)+7,stroke:'#89918e'}));
+    if(x%8===0){
+      const tx=S('text',{x:X(x),y:Y(0)-13,'text-anchor':'middle',fill:'#68736f','font-size':'11'});
+      tx.textContent=x; svg.appendChild(tx);
+    }
   }
+
+  r.forEach((g,i)=>{
+    const gg=S('g',{'data-rec':i,role:'button',tabindex:'0'}),sel=i===state.selected;
+    gg.appendChild(S('line',{x1:X(g.x),y1:Y(0),x2:X(g.x),y2:Y(0)+18,stroke:sel?'#d66f3d':'#273f38','stroke-width':sel?'4':'2'}));
+    gg.appendChild(S('path',{d:`M ${X(g.x)-7} ${Y(0)+18} L ${X(g.x)+7} ${Y(0)+18} L ${X(g.x)} ${Y(0)+34} Z`,fill:sel?'#d66f3d':'#273f38'}));
+    const tx=S('text',{x:X(g.x),y:Y(0)+50,'text-anchor':'middle',fill:sel?'#d66f3d':'#32443e','font-size':'11','font-weight':sel?'900':'700'});
+    tx.textContent=g.name; gg.appendChild(tx);
+    gg.style.cursor='pointer';
+    gg.addEventListener('click',e=>{e.stopPropagation();state.selected=i;renderAll();});
+    svg.appendChild(gg);
+  });
+
+  const sx=X(state.shot),sy=Y(0);
+  svg.appendChild(S('circle',{cx:sx,cy:sy,r:10,fill:'#d66f3d',stroke:'#fff','stroke-width':'3'}));
+  svg.appendChild(S('path',{d:`M ${sx-10} ${sy-34} L ${sx+10} ${sy-34} L ${sx+5} ${sy-5} L ${sx-5} ${sy-5} Z`,fill:'#c2542d'}));
+  const sl=S('text',{x:sx,y:sy-43,'text-anchor':'middle',fill:'#b64f2d','font-size':'13','font-weight':'900'});
+  sl.textContent=`SHOT ${state.shot} m`; svg.appendChild(sl);
+
+  const g=r[state.selected];
+  if(g){
+    const off=g.x-state.shot,tt=travelForOffset(off,p),rx=X(g.x);
+    svg.appendChild(S('line',{x1:sx,y1:sy+3,x2:rx,y2:sy+7,stroke:'#507c91','stroke-width':'2','stroke-dasharray':'7 6',opacity:'.48'}));
+    if(isFinite(tt.tr)){
+      const dir=Math.sign(off)||1,xleg=p.h*Math.tan(tt.ic),x1=state.shot+dir*xleg,x2=g.x-dir*xleg;
+      if((dir>0&&x2>=x1)||(dir<0&&x2<=x1)){
+        svg.appendChild(S('path',{d:`M ${sx} ${sy} L ${X(x1)} ${Y(p.h)} L ${X(x2)} ${Y(p.h)} L ${rx} ${sy}`,fill:'none',stroke:'#c89a43','stroke-width':'3','stroke-dasharray':'8 5',opacity:'.7'}));
+      }
+    }
+
+    if(state.animT>0){
+      const addUpperWavefront=(time,opacity,width)=>{
+        if(time<=0)return;
+        const radius=p.v1*time,N=180;
+        let d='',pen=false;
+        for(let i=0;i<=N;i++){
+          const a=Math.PI*i/N;
+          const wx=state.shot+radius*Math.cos(a),wz=radius*Math.sin(a);
+          const visible=wz>=0&&wz<=p.h&&wx>=xmin&&wx<=xmax;
+          if(visible){
+            d+=`${pen?' L':' M'} ${X(wx).toFixed(1)} ${Y(wz).toFixed(1)}`;
+            pen=true;
+          }else pen=false;
+        }
+        if(d)svg.appendChild(S('path',{d,fill:'none',stroke:'#4d83a0','stroke-width':width,opacity,'stroke-linecap':'round'}));
+      };
+      addUpperWavefront(state.animT-.024,.16,2);
+      addUpperWavefront(state.animT-.012,.30,3);
+      addUpperWavefront(state.animT,.92,5);
+
+      const ic=Math.asin(p.v1/p.v2);
+      const tCrit=p.h/(p.v1*Math.cos(ic));
+      const xleg=p.h*Math.tan(ic);
+      if(state.animT>=tCrit){
+        const along=p.v2*(state.animT-tCrit);
+        const yb=Y(p.h);
+        const right0=state.shot+xleg,right1=right0+along;
+        const left0=state.shot-xleg,left1=left0-along;
+        const drawHead=(a,b)=>{
+          const aa=clamp(a,xmin,xmax),bb=clamp(b,xmin,xmax);
+          if((b>=a&&bb>=aa)||(b<a&&bb<=aa)){
+            svg.appendChild(S('line',{x1:X(aa),y1:yb,x2:X(bb),y2:yb,stroke:'#d5a13f','stroke-width':'8',opacity:'.82','stroke-linecap':'round'}));
+            if(b>=xmin&&b<=xmax)svg.appendChild(S('circle',{cx:X(b),cy:yb,r:9,fill:'#d5a13f',stroke:'#fff8e7','stroke-width':'3'}));
+          }
+        };
+        drawHead(right0,right1);
+        drawHead(left0,left1);
+
+        const hw=S('text',{x:left+14,y:yb+24,fill:'#8d6a29','font-size':'12','font-weight':'800'});
+        hw.textContent='高速層 head wave 沿界面傳遞'; svg.appendChild(hw);
+      }
+
+      if(state.animT>=tt.first&&state.animT<=tt.first+.018){
+        const pulse=10+28*clamp((state.animT-tt.first)/.018,0,1);
+        svg.appendChild(S('circle',{cx:rx,cy:sy+18,r:pulse,fill:'none',stroke:'#d66f3d','stroke-width':'5',opacity:1-clamp((state.animT-tt.first)/.018,0,1)}));
+      }
+
+      const badge=S('g');
+      badge.appendChild(S('rect',{x:W-218,y:14,width:190,height:38,rx:12,fill:'#153b36',opacity:'.92'}));
+      const bt=S('text',{x:W-123,y:39,'text-anchor':'middle',fill:'#fff','font-size':'14','font-weight':'900'});
+      bt.textContent=`模擬時間 ${(state.animT*1000).toFixed(1)} ms`;
+      badge.appendChild(bt); svg.appendChild(badge);
+    }
+  }
+
+  svg.onclick=e=>{
+    if(e.target.closest('[data-rec]'))return;
+    const pt=svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
+    const q=pt.matrixTransform(svg.getScreenCTM().inverse());
+    if(Math.abs(q.y-Y(0))<70){
+      const x=xmin+(q.x-left)/iw*(xmax-xmin);
+      state.shot=Math.round(clamp(x,xmin,xmax));
+      el.shotSlider.value=clamp(state.shot,+el.shotSlider.min,+el.shotSlider.max);
+      state.animT=0; renderAll();
+    }
+  };
+}
   function ricker(t,f=55){const a=Math.PI*f*t,a2=a*a;return(1-2*a2)*Math.exp(-a2);}function traceSamples(g,p,seedOffset=0){const tt=travelForOffset(g.x-state.shot,p),dur=.22,N=900,dt=dur/(N-1),arr=new Float32Array(N);let seed=(12345+seedOffset*97+Math.round(g.x*31)+Math.round(state.shot*17))>>>0;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};const offset=Math.abs(g.x-state.shot),amp=1/(1+.045*offset);for(let i=0;i<N;i++){const tm=i*dt;let y=amp*ricker(tm-tt.td,58);if(isFinite(tt.tr))y+=.9*amp*ricker(tm-tt.tr,48);y+=p.noise*(rand()*2-1)*.16;arr[i]=y;}return{arr,t:tt,dur,N};}function aggregateTrace(g,p){let sum=null,meta=null;for(let k=0;k<state.stackCount;k++){const tr=traceSamples(g,p,k+1);meta=tr;if(!sum)sum=new Float32Array(tr.N);for(let i=0;i<tr.N;i++)sum[i]+=tr.arr[i]/state.stackCount;}return{...meta,arr:sum};}
   function drawWiggle(){const c=el.wiggle,ctx=c.getContext('2d'),p=params(),r=recs(),W=c.width,H=c.height,m={l:82,r:28,t:30,b:42},iw=W-m.l-m.r,ih=H-m.t-m.b,dur=.22;ctx.clearRect(0,0,W,H);ctx.fillStyle='#fbfbf8';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#e0e1dc';for(let j=0;j<=5;j++){const x=m.l+iw*j/5;ctx.beginPath();ctx.moveTo(x,m.t);ctx.lineTo(x,H-m.b);ctx.stroke();ctx.fillStyle='#74807b';ctx.font='14px system-ui';ctx.textAlign='center';ctx.fillText(String(Math.round(dur*1000*j/5)),x,H-m.b+24);}const rowH=ih/r.length;r.forEach((g,i)=>{const cy=m.t+rowH*(i+.5),tr=aggregateTrace(g,p),sel=i===state.selected;if(sel){ctx.fillStyle='rgba(214,111,61,.08)';ctx.fillRect(m.l,cy-rowH/2,iw,rowH);}ctx.strokeStyle='#d7d9d4';ctx.beginPath();ctx.moveTo(m.l,cy);ctx.lineTo(W-m.r,cy);ctx.stroke();ctx.fillStyle=sel?'#c25f35':'#52615b';ctx.textAlign='right';ctx.font=sel?'bold 15px system-ui':'14px system-ui';ctx.fillText(`${g.name}  ${g.x}m`,m.l-10,cy+5);const scale=Math.min(38,rowH*.42);ctx.strokeStyle=sel?'#b55331':'#243b35';ctx.lineWidth=sel?2.2:1.25;ctx.beginPath();for(let k=0;k<tr.N;k++){const x=m.l+iw*k/(tr.N-1),y=cy-tr.arr[k]*scale;k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();const ax=m.l+iw*tr.t.first/dur;if(ax>=m.l&&ax<=W-m.r){ctx.fillStyle='#d66f3d';ctx.beginPath();ctx.moveTo(ax,cy-rowH*.4);ctx.lineTo(ax-5,cy-rowH*.24);ctx.lineTo(ax+5,cy-rowH*.24);ctx.closePath();ctx.fill();}});c.onclick=e=>{const rect=c.getBoundingClientRect(),y=(e.clientY-rect.top)*c.height/rect.height,idx=Math.floor((y-m.t)/rowH);if(idx>=0&&idx<r.length){state.selected=idx;renderAll();}};}
   function drawTrace(){const c=el.trace,ctx=c.getContext('2d'),p=params(),r=recs(),g=r[state.selected];if(!g)return;const tr=aggregateTrace(g,p),W=c.width,H=c.height,m={l:64,r:26,t:25,b:48},iw=W-m.l-m.r,ih=H-m.t-m.b,dur=tr.dur;ctx.clearRect(0,0,W,H);ctx.fillStyle='#fbfbf8';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#e0e1dc';ctx.fillStyle='#6a7671';ctx.font='14px system-ui';ctx.textAlign='center';for(let j=0;j<=5;j++){const x=m.l+iw*j/5;ctx.beginPath();ctx.moveTo(x,m.t);ctx.lineTo(x,H-m.b);ctx.stroke();ctx.fillText(`${Math.round(dur*1000*j/5)}`,x,H-m.b+22);}const zero=m.t+ih/2;ctx.strokeStyle='#bdc2be';ctx.beginPath();ctx.moveTo(m.l,zero);ctx.lineTo(W-m.r,zero);ctx.stroke();let mx=0;for(const v of tr.arr)mx=Math.max(mx,Math.abs(v));mx=mx||1;ctx.strokeStyle='#203b34';ctx.lineWidth=2.2;ctx.beginPath();for(let i=0;i<tr.N;i++){const x=m.l+iw*i/(tr.N-1),y=zero-tr.arr[i]/mx*ih*.43;i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();const mark=(tm,label,color,y)=>{if(!isFinite(tm)||tm<0||tm>dur)return;const x=m.l+iw*tm/dur;ctx.strokeStyle=color;ctx.setLineDash([6,5]);ctx.beginPath();ctx.moveTo(x,m.t);ctx.lineTo(x,H-m.b);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=color;ctx.textAlign='left';ctx.font='bold 14px system-ui';ctx.fillText(`${label} ${(tm*1000).toFixed(1)} ms`,Math.min(x+7,W-185),y);};mark(tr.t.td,'Direct','#507c91',45);mark(tr.t.tr,'Refracted','#b88a35',66);const fx=m.l+iw*tr.t.first/dur;ctx.fillStyle='#d66f3d';ctx.beginPath();ctx.arc(fx,zero,6,0,Math.PI*2);ctx.fill();el.traceTitle.textContent=`${g.name} 單通道波形`;el.traceMeta.textContent=`receiver ${g.x} m · offset ${Math.abs(g.x-state.shot)} m`;el.arrivalReadout.innerHTML=`<div><small>直達波到時</small><strong>${(tr.t.td*1000).toFixed(1)} ms</strong></div><div><small>折射波到時</small><strong>${isFinite(tr.t.tr)?(tr.t.tr*1000).toFixed(1)+' ms':'尚未形成可用首波路徑'}</strong></div><div><small>First arrival</small><strong>${(tr.t.first*1000).toFixed(1)} ms</strong></div><div><small>最早到達</small><strong>${tr.t.type==='direct'?'直達波':'折射波'}</strong></div>`;}
   function drawTravel(){const p=params(),r=recs(),svg=el.travel;svg.innerHTML='';const W=760,H=470,m={l:72,r:28,t:34,b:60},iw=W-m.l-m.r,ih=H-m.t-m.b,data=r.map(g=>{const off=Math.abs(g.x-state.shot),tt=travelForOffset(off,p);return{g,off,...tt};}).sort((a,b)=>a.off-b.off),xmax=Math.max(12,...data.map(d=>d.off))*1.06,ymax=Math.max(...data.flatMap(d=>[d.td,isFinite(d.tr)?d.tr:0]))*1.14||.1,X=x=>m.l+x/xmax*iw,Y=t=>m.t+ih-t/ymax*ih;for(let j=0;j<=5;j++){const x=xmax*j/5;svg.appendChild(S('line',{x1:X(x),y1:m.t,x2:X(x),y2:H-m.b,stroke:'#e3e4df'}));let tx=S('text',{x:X(x),y:H-28,'text-anchor':'middle',fill:'#6e7974','font-size':'12'});tx.textContent=x.toFixed(0);svg.appendChild(tx);const tm=ymax*j/5;svg.appendChild(S('line',{x1:m.l,y1:Y(tm),x2:W-m.r,y2:Y(tm),stroke:'#ecece8'}));let ty=S('text',{x:m.l-10,y:Y(tm)+4,'text-anchor':'end',fill:'#6e7974','font-size':'12'});ty.textContent=(tm*1000).toFixed(0);svg.appendChild(ty);}svg.appendChild(S('line',{x1:m.l,y1:m.t,x2:m.l,y2:H-m.b,stroke:'#78817e','stroke-width':'1.5'}));svg.appendChild(S('line',{x1:m.l,y1:H-m.b,x2:W-m.r,y2:H-m.b,stroke:'#78817e','stroke-width':'1.5'}));let tx=S('text',{x:m.l+iw/2,y:H-7,'text-anchor':'middle',fill:'#44514c','font-size':'13','font-weight':'800'});tx.textContent='Source–receiver distance (m)';svg.appendChild(tx);let ty=S('text',{x:18,y:m.t+ih/2,transform:`rotate(-90 18 ${m.t+ih/2})`,'text-anchor':'middle',fill:'#44514c','font-size':'13','font-weight':'800'});ty.textContent='Travel time (ms)';svg.appendChild(ty);const direct=[],refr=[],first=[];data.forEach(d=>{direct.push([X(d.off),Y(d.td)]);if(isFinite(d.tr))refr.push([X(d.off),Y(d.tr)]);first.push([X(d.off),Y(d.first)]);});const path=(pts,color,w=2,dash='')=>{if(!pts.length)return;svg.appendChild(S('path',{d:pts.map((q,i)=>`${i?'L':'M'} ${q[0]} ${q[1]}`).join(' '),fill:'none',stroke:color,'stroke-width':w,'stroke-dasharray':dash}));};path(direct,'#507c91',2.5);path(refr,'#c79b48',2.5,'7 5');path(first,'#d66f3d',4);data.forEach(d=>svg.appendChild(S('circle',{cx:X(d.off),cy:Y(d.first),r:5.5,fill:'#d66f3d',stroke:'#fff','stroke-width':'2'})));const ic=Math.asin(p.v1/p.v2),ti=2*p.h*Math.cos(ic)/p.v1,den=1/p.v1-1/p.v2,xc=den>0?ti/den:Infinity;if(isFinite(xc)&&xc<xmax){svg.appendChild(S('line',{x1:X(xc),y1:m.t,x2:X(xc),y2:H-m.b,stroke:'#999f9b','stroke-dasharray':'4 5'}));const ct=S('text',{x:X(xc)+6,y:m.t+19,fill:'#6f7774','font-size':'11'});ct.textContent=`crossover ≈ ${xc.toFixed(1)} m`;svg.appendChild(ct);}const count=data.filter(d=>d.type==='refracted').length;el.finding.innerHTML=`<strong>目前觀察</strong><br>${count?`${count} 個受波器的 first arrival 已由折射波控制。`:'目前所有受波器仍以直達波為 first arrival。'}<br><span style="opacity:.78">試著移動震源、增加測線長度，或調整 V₂ / 深度。</span>`;}
   function renderAll(){updateOutputs();drawCross();drawWiggle();drawTrace();drawTravel();}
-  function maxArrival(){const p=params();return Math.max(...recs().map(g=>travelForOffset(g.x-state.shot,p).first),.03);}function animate(ts){if(!state.playing)return;if(!state.last)state.last=ts;const dt=Math.min(.035,(ts-state.last)/1000);state.last=ts;if(state.holdUntil){if(ts<state.holdUntil){drawCross();state.raf=requestAnimationFrame(animate);return;}state.holdUntil=0;state.animT=0;}state.animT+=dt*.65*state.speed;const end=maxArrival()*1.05;if(state.animT>end){state.animT=end;state.holdUntil=ts+900;}drawCross();state.raf=requestAnimationFrame(animate);}function start(){state.playing=true;state.last=0;state.holdUntil=0;cancelAnimationFrame(state.raf);state.raf=requestAnimationFrame(animate);el.status.textContent=`正在播放震波傳遞（${state.speed.toFixed(2)}×）`;}function pause(){state.playing=false;cancelAnimationFrame(state.raf);state.last=0;state.holdUntil=0;el.status.textContent='已暫停';}
-  [el.v1,el.v2,el.depth,el.noise,el.nRec,el.recSpacing].forEach(n=>n.addEventListener('input',()=>{state.animT=0;renderAll();}));el.shotSlider.addEventListener('input',()=>{state.shot=+el.shotSlider.value;state.animT=0;renderAll();});document.querySelectorAll('[data-shot]').forEach(b=>b.addEventListener('click',()=>{state.shot=+b.dataset.shot;el.shotSlider.value=state.shot;state.animT=0;renderAll();}));el.hit.addEventListener('click',()=>{state.stackCount=1;state.animT=0;renderAll();start();el.status.textContent='敲擊！已產生 1 次震源紀錄';});el.stack.addEventListener('click',()=>{state.stackCount=5;state.animT=0;renderAll();start();el.status.textContent='已模擬 5 次重複敲擊並疊加';});el.play.addEventListener('click',start);el.pause.addEventListener('click',pause);el.speedSelect.addEventListener('change',()=>{state.speed=+el.speedSelect.value;state.animT=0;state.holdUntil=0;el.status.textContent=`動畫速度已設為 ${state.speed.toFixed(2)}×`;drawCross();});el.reset.addEventListener('click',()=>{pause();state.shot=0;state.selected=6;state.animT=0;state.stackCount=1;state.speed=0.10;state.holdUntil=0;el.speedSelect.value='0.10';el.v1.value=300;el.v2.value=1000;el.depth.value=3;el.noise.value=18;el.nRec.value=12;el.recSpacing.value=4;el.shotSlider.value=0;renderAll();el.status.textContent='已回到預設設定';});el.reverse.addEventListener('click',()=>{const last=recs().at(-1)?.x||44;state.shot=last+4;el.shotSlider.value=clamp(state.shot,+el.shotSlider.min,+el.shotSlider.max);state.animT=0;renderAll();start();el.challenge.textContent=`已從測線右側 ${state.shot} m 反向敲擊。比較正向與反向資料：同一地下模型是否仍能解釋 first arrivals？`;});el.random.addEventListener('click',()=>{pause();const v1=220+Math.round(Math.random()*280/10)*10,v2=Math.max(v1+300,700+Math.round(Math.random()*800/20)*20),h=(1.5+Math.random()*4.5).toFixed(1);el.v1.value=v1;el.v2.value=clamp(v2,+el.v2.min,+el.v2.max);el.depth.value=h;state.animT=0;renderAll();el.challenge.textContent='已產生一組未知地下模型。先用不同敲擊點與走時曲線推理，再按「顯示目前模型參數」檢查。';});el.reveal.addEventListener('click',()=>{const p=params();el.challenge.textContent=`目前模型：V₁ = ${p.v1} m/s，V₂ = ${p.v2} m/s，界面深度 h = ${p.h.toFixed(1)} m。`;});if(matchMedia('(prefers-reduced-motion: reduce)').matches){el.play.disabled=true;el.play.title='系統偏好減少動態效果';}renderAll();
+  function maxArrival(){const p=params();return Math.max(...recs().map(g=>travelForOffset(g.x-state.shot,p).first),.03);}function animate(ts){if(!state.playing)return;if(!state.last)state.last=ts;const dt=Math.min(.035,(ts-state.last)/1000);state.last=ts;if(state.holdUntil){if(ts<state.holdUntil){drawCross();state.raf=requestAnimationFrame(animate);return;}state.holdUntil=0;if(state.loopAnimation){state.animT=0;}else{state.playing=false;el.status.textContent='本次震波傳遞完成';drawCross();return;}}state.animT+=dt*.65*state.speed;const end=maxArrival()*1.05;if(state.animT>=end){state.animT=end;state.holdUntil=ts+1100;}drawCross();state.raf=requestAnimationFrame(animate);}function start(loop=true){state.playing=true;state.loopAnimation=loop;state.last=0;state.holdUntil=0;cancelAnimationFrame(state.raf);state.raf=requestAnimationFrame(animate);el.status.textContent=`正在播放震波傳遞（${state.speed.toFixed(2)}×）`;}function pause(){state.playing=false;cancelAnimationFrame(state.raf);state.last=0;state.holdUntil=0;el.status.textContent='已暫停';}
+  [el.v1,el.v2,el.depth,el.noise,el.nRec,el.recSpacing].forEach(n=>n.addEventListener('input',()=>{state.animT=0;renderAll();}));el.shotSlider.addEventListener('input',()=>{state.shot=+el.shotSlider.value;state.animT=0;renderAll();});document.querySelectorAll('[data-shot]').forEach(b=>b.addEventListener('click',()=>{state.shot=+b.dataset.shot;el.shotSlider.value=state.shot;state.animT=0;renderAll();}));el.hit.addEventListener('click',()=>{state.stackCount=1;state.animT=0;renderAll();start(false);el.status.textContent='敲擊！播放一次震波傳遞';});el.stack.addEventListener('click',()=>{state.stackCount=5;state.animT=0;renderAll();start(false);el.status.textContent='已模擬 5 次重複敲擊並疊加';});el.play.addEventListener('click',()=>start(true));el.pause.addEventListener('click',pause);el.step.addEventListener('click',()=>{pause();state.animT=clamp(state.animT+.005,0,maxArrival()*1.05);drawCross();el.status.textContent=`單步觀察：${(state.animT*1000).toFixed(1)} ms`;});el.speedSelect.addEventListener('change',()=>{state.speed=+el.speedSelect.value;state.animT=0;state.holdUntil=0;el.status.textContent=`動畫速度已設為 ${state.speed.toFixed(2)}×`;drawCross();});el.reset.addEventListener('click',()=>{pause();state.shot=0;state.selected=6;state.animT=0;state.stackCount=1;state.speed=0.05;state.holdUntil=0;state.loopAnimation=false;el.speedSelect.value='0.05';el.v1.value=300;el.v2.value=1000;el.depth.value=3;el.noise.value=18;el.nRec.value=12;el.recSpacing.value=4;el.shotSlider.value=0;renderAll();el.status.textContent='已回到預設設定';});el.reverse.addEventListener('click',()=>{const last=recs().at(-1)?.x||44;state.shot=last+4;el.shotSlider.value=clamp(state.shot,+el.shotSlider.min,+el.shotSlider.max);state.animT=0;renderAll();start(false);el.challenge.textContent=`已從測線右側 ${state.shot} m 反向敲擊。比較正向與反向資料：同一地下模型是否仍能解釋 first arrivals？`;});el.random.addEventListener('click',()=>{pause();const v1=220+Math.round(Math.random()*280/10)*10,v2=Math.max(v1+300,700+Math.round(Math.random()*800/20)*20),h=(1.5+Math.random()*4.5).toFixed(1);el.v1.value=v1;el.v2.value=clamp(v2,+el.v2.min,+el.v2.max);el.depth.value=h;state.animT=0;renderAll();el.challenge.textContent='已產生一組未知地下模型。先用不同敲擊點與走時曲線推理，再按「顯示目前模型參數」檢查。';});el.reveal.addEventListener('click',()=>{const p=params();el.challenge.textContent=`目前模型：V₁ = ${p.v1} m/s，V₂ = ${p.v2} m/s，界面深度 h = ${p.h.toFixed(1)} m。`;});if(matchMedia('(prefers-reduced-motion: reduce)').matches){el.play.disabled=true;el.play.title='系統偏好減少動態效果';}renderAll();
 })();
