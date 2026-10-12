@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#153b36">
+<title>看不見的地下｜折射震測探究實驗室</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="hero">
+  <div class="hero-inner">
+    <div>
+      <p class="eyebrow">REFRACTION SEISMIC INQUIRY LAB</p>
+      <h1>看不見的地下，<br><span>我們怎麼知道？</span></h1>
+      <p class="lead">指定敲擊位置、觀察震波傳遞、讀取多通道震波紀錄，從「距離－到時」證據建立地下速度模型。</p>
+    </div>
+    <div class="hero-badges">
+      <span>Prediction</span><span>Observation</span><span>Explanation</span><span>Model Revision</span>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="panel inquiry">
+  <div class="section-head">
+    <div><span class="step">01</span><h2>Prediction｜先預測，再敲擊</h2></div>
+    <p>先不要看答案。設定地下模型與受波器，再預測哪一種震波會先到。</p>
+  </div>
+
+  <div class="control-grid">
+    <label>第一層速度 V₁
+      <div class="control-row"><input id="v1" type="range" min="150" max="800" value="300" step="10"><output id="v1Out">300 m/s</output></div>
+    </label>
+    <label>第二層速度 V₂
+      <div class="control-row"><input id="v2" type="range" min="500" max="2200" value="1000" step="20"><output id="v2Out">1000 m/s</output></div>
+    </label>
+    <label>界面深度 h
+      <div class="control-row"><input id="depth" type="range" min="0.8" max="8" value="3" step="0.1"><output id="depthOut">3.0 m</output></div>
+    </label>
+    <label>受波器數量
+      <select id="nRec">
+        <option value="5">5 支</option><option value="8">8 支</option><option value="12" selected>12 支</option><option value="16">16 支</option><option value="24">24 支</option>
+      </select>
+    </label>
+    <label>受波器間距
+      <select id="recSpacing">
+        <option value="2">2 m</option><option value="3">3 m</option><option value="4" selected>4 m</option><option value="5">5 m</option>
+      </select>
+    </label>
+    <label>環境雜訊
+      <div class="control-row"><input id="noise" type="range" min="0" max="60" value="18" step="1"><output id="noiseOut">18%</output></div>
+    </label>
+  </div>
+
+  <div class="prediction-box">
+    <p class="prompt">在 <strong id="predReceiverLabel">G7</strong> 這支受波器，你預測最早到達的是：</p>
+    <div class="choice-row">
+      <label><input type="radio" name="prediction" value="direct"> 直達波 Direct wave</label>
+      <label><input type="radio" name="prediction" value="refracted"> 折射波 Refracted wave</label>
+      <label><input type="radio" name="prediction" value="unsure"> 還不確定</label>
+    </div>
+    <textarea id="predictionReason" rows="2" placeholder="寫下你的理由：我認為……因為……"></textarea>
+  </div>
+</section>
+
+<section class="panel observation">
+  <div class="section-head">
+    <div><span class="step">02</span><h2>Observation｜指定敲擊點，觀察震波傳遞</h2></div>
+    <p>點測線、拖曳滑桿或使用預設位置來指定震源。按「敲擊」後會同步產生傳遞動畫與多通道紀錄。</p>
+  </div>
+
+  <div class="shot-tools">
+    <label>敲擊位置
+      <input id="shotSlider" type="range" min="-8" max="60" value="0" step="1">
+      <output id="shotOut">0 m</output>
+    </label>
+    <div class="preset-row">
+      <button type="button" data-shot="0">0 m</button><button type="button" data-shot="12">12 m</button><button type="button" data-shot="24">24 m</button><button type="button" data-shot="36">36 m</button><button type="button" data-shot="44">44 m</button><button type="button" data-shot="-4">反向外點 -4 m</button>
+    </div>
+  </div>
+
+  <div class="sim-wrap">
+    <div class="sim-toolbar">
+      <button id="hitBtn" class="primary" type="button">🔨 敲擊一次</button>
+      <button id="stackBtn" type="button">＋ 疊加 5 次</button>
+      <button id="playBtn" type="button">▶ 播放</button>
+      <button id="pauseBtn" type="button">Ⅱ 暫停</button>
+      <button id="resetBtn" type="button">↺ 重設</button>
+      <span id="simStatus" class="status" aria-live="polite">準備完成</span>
+    </div>
+    <svg id="crossSection" viewBox="0 0 980 430" aria-label="兩層地下構造與震波傳遞模擬"></svg>
+    <p class="hint">提示：可以直接點擊上方地表，改變敲擊位置；點擊任一受波器可選擇要分析的 channel。</p>
+  </div>
+
+  <div class="observation-grid">
+    <div class="record-card">
+      <div class="card-head"><h3>多通道震波記錄</h3><span>Wiggle plot</span></div>
+      <canvas id="wiggle" width="1000" height="540"></canvas>
+      <div class="legend"><span>▲ first arrival</span><span>虛線：震源時間 t = 0</span><span>點擊 trace 可選取</span></div>
+    </div>
+    <div class="trace-card">
+      <div class="card-head"><h3 id="traceTitle">G7 單通道波形</h3><span id="traceMeta">—</span></div>
+      <canvas id="trace" width="1000" height="360"></canvas>
+      <div id="arrivalReadout" class="readout"></div>
+    </div>
+  </div>
+</section>
+
+<section class="panel explanation">
+  <div class="section-head">
+    <div><span class="step">03</span><h2>Explanation｜從走時曲線建立模型</h2></div>
+    <p>把每一支受波器的 first arrival 畫成 distance–time graph。斜率不是裝飾，而是速度的證據。</p>
+  </div>
+  <div class="analysis-grid">
+    <div class="chart-card"><svg id="travelChart" viewBox="0 0 760 470" aria-label="距離與初達時間走時曲線"></svg></div>
+    <aside class="analysis-notes">
+      <div class="formula-card"><span>直達波</span><strong>t = x / V₁</strong></div>
+      <div class="formula-card"><span>折射首波</span><strong>t = tᵢ + x / V₂</strong></div>
+      <div class="formula-card"><span>走時圖斜率</span><strong>dt/dx = 1 / V</strong></div>
+      <div class="finding" id="finding"></div>
+    </aside>
+  </div>
+  <div class="cer">
+    <div><h3>C · Claim</h3><textarea id="claim" rows="3" placeholder="我的地下模型主張是……"></textarea></div>
+    <div><h3>E · Evidence</h3><textarea id="evidence" rows="3" placeholder="我的證據是……例如走時圖出現……"></textarea></div>
+    <div><h3>R · Reasoning</h3><textarea id="reasoning" rows="3" placeholder="這個證據支持模型，因為……"></textarea></div>
+  </div>
+  <details class="teacher-note"><summary>教師提示：如何形成認知衝突？</summary><p>先讓學生以「地下只有一種均勻材料」預測：所有 first arrival 應形成同一條直線。接著把震源移遠或拉長 offset；當遠距離資料逐漸由折射首波控制、走時曲線出現另一個較小斜率時，再追問：「如果地下只有一種材料，為什麼會有兩種斜率？」</p></details>
+</section>
+
+<section class="panel challenge">
+  <div class="section-head">
+    <div><span class="step">04</span><h2>Model Revision｜用新資料挑戰你的模型</h2></div>
+    <p>科學模型不是算完一次就結束。換一個敲擊點，看看原來的解釋還能不能成立。</p>
+  </div>
+  <div class="challenge-actions">
+    <button id="reverseBtn" class="primary" type="button">從測線另一側反向敲擊</button>
+    <button id="randomBtn" type="button">產生一組未知地下模型</button>
+    <button id="revealBtn" type="button">顯示目前模型參數</button>
+  </div>
+  <div id="challengeMessage" class="challenge-message">試著先不改地下參數，只改變震源位置，檢驗同一模型能否解釋新的觀測。</div>
+</section>
+</main>
+<footer><p>折射震測探究實驗室｜Prediction → Observation → Explanation → Model Revision</p><p class="small">本頁為教學模擬。採水平兩層介質、V₂ &gt; V₁ 的簡化折射震測模型；波形為合成訊號，用於理解 first arrival、travel-time slope 與多震源觀測。</p></footer>
+<script src="script.js"></script>
+</body>
+</html>
